@@ -62,3 +62,34 @@ export function saveCaption(text: string) {
   if (!t) localStorage.removeItem(CAPTION_KEY);
   else localStorage.setItem(CAPTION_KEY, t.slice(0, 20).toUpperCase());
 }
+
+/**
+ * Generates a simple, short user ID (6 to 8 characters) that contains the cleaned username.
+ * Example outputs:
+ * - "Kim" -> "kimx4d" (6 chars)
+ * - "Alex" -> "alexw7e" (7 chars)
+ * - "Adithyan" -> "adithm2n" (8 chars)
+ */
+export function generateSimpleUserId(username: string): string {
+  const clean = username.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const base = clean || "user";
+  
+  let baseLength = Math.min(base.length, 5);
+  if (baseLength < 3) {
+    baseLength = 3;
+  }
+  
+  let basePart = base.slice(0, baseLength);
+  if (basePart.length < 3) {
+    basePart = basePart.padEnd(3, "x");
+  }
+  
+  const suffixLength = 3;
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let suffix = "";
+  for (let i = 0; i < suffixLength; i++) {
+    suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return basePart + suffix;
+}
+

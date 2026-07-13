@@ -15,6 +15,7 @@ import {
   progressInLevel,
   saveCaption,
   saveLoginId,
+  generateSimpleUserId,
 } from "@/lib/game";
 import { isMuted, playLevelUp, playPunch, setMuted } from "@/lib/audio";
 import {
@@ -365,15 +366,46 @@ function SignupScreen({
     if (!n) return setErr("Please enter your name.");
     if (!Number.isFinite(a) || a < 4 || a > 120) return setErr("Enter a valid age (4–120).");
     setLoading(true);
-    const { data, error } = await supabase
-      .from("players")
-      .insert({ name: n, age: a })
-      .select()
-      .single();
+
+    let success = false;
+    let attempts = 0;
+    let finalData = null;
+    let finalError = null;
+
+    while (!success && attempts < 5) {
+      const customId = generateSimpleUserId(n);
+      const { data, error } = await supabase
+        .from("players")
+        .insert({ id: customId, name: n, age: a })
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === "23505") {
+          attempts++;
+          finalError = error;
+          continue;
+        }
+        finalError = error;
+        break;
+      }
+      if (data) {
+        finalData = data;
+        success = true;
+      } else {
+        attempts++;
+      }
+    }
+
     setLoading(false);
-    if (error || !data) return setErr(error?.message || "Something went wrong. Please try again.");
-    setCreatedId(data.id);
-    setCreated(data as Player);
+    if (!success || !finalData) {
+      return setErr(
+        finalError?.message || "Failed to create account. Please try a different name or try again."
+      );
+    }
+
+    setCreatedId(finalData.id);
+    setCreated(finalData as Player);
   }
 
   function handleCopy(id: string) {
