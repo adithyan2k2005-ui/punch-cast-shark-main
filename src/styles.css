@@ -54,6 +54,26 @@
   --ring: oklch(0.85 0.04 85);
 }
 
+body.light {
+  --background: oklch(0.98 0.005 85); /* Soft happy ivory cream */
+  --foreground: oklch(0.20 0.015 70); /* Deep warm charcoal */
+  --card: oklch(0.94 0.008 85); /* Soft warm white */
+  --card-foreground: oklch(0.20 0.015 70);
+  --popover: oklch(0.94 0.008 85);
+  --popover-foreground: oklch(0.20 0.015 70);
+  --primary: oklch(0.68 0.14 80); /* Bright warm sunlit gold */
+  --primary-foreground: oklch(0.99 0.005 85);
+  --secondary: oklch(0.62 0.05 70); /* Muted slate sand */
+  --secondary-foreground: oklch(0.20 0.015 70);
+  --muted: oklch(0.91 0.01 85); /* Muted linen cream */
+  --muted-foreground: oklch(0.48 0.015 70);
+  --accent: oklch(0.70 0.16 65); /* Happy peach/bronze gold */
+  --accent-foreground: oklch(0.99 0.005 85);
+  --border: oklch(0.86 0.01 85);
+  --input: oklch(0.94 0.008 85);
+  --ring: oklch(0.68 0.14 80);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -70,13 +90,21 @@
     font-family: var(--font-body);
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
+    transition: background 0.3s, color 0.3s;
+  }
+  body.light {
+    background:
+      radial-gradient(circle 800px at 50% -200px, oklch(0.88 0.04 80 / 0.4), transparent),
+      radial-gradient(circle 600px at 100% 100%, oklch(0.92 0.02 70 / 0.3), transparent),
+      var(--color-background);
   }
   main {
-    background: oklch(0.14 0.01 250 / 0.35);
+    background: color-mix(in oklch, var(--background) 90%, transparent);
     backdrop-filter: blur(8px);
-    box-shadow: 0 0 120px rgba(0, 0, 0, 0.7);
-    border-left: 1px solid oklch(0.20 0.01 250 / 0.4);
-    border-right: 1px solid oklch(0.20 0.01 250 / 0.4);
+    box-shadow: 0 0 120px rgba(0, 0, 0, 0.4);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
   }
   h1, h2, h3, .display {
     font-family: var(--font-display);

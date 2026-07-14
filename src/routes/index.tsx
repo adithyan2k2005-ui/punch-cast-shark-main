@@ -104,6 +104,33 @@ function PunchMeApp() {
   const [leaderboardReturn, setLeaderboardReturn] = useState<Screen>("welcome");
   const [sessionStats, setSessionStats] = useState<SessionStats>({ ...EMPTY_SESSION });
 
+  // Persistent theme state
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("pm_theme") as "dark" | "light") || "dark";
+    }
+    return "dark";
+  });
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    localStorage.setItem("pm_theme", next);
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const el = document.body;
+      if (theme === "light") {
+        el.classList.add("light");
+        el.classList.remove("dark");
+      } else {
+        el.classList.add("dark");
+        el.classList.remove("light");
+      }
+    }
+  }, [theme]);
+
   const openLeaderboard = (returnTo: Screen) => {
     setLeaderboardReturn(returnTo);
     setScreen("leaderboard");
@@ -120,7 +147,7 @@ function PunchMeApp() {
   }, []);
 
   return (
-    <main className="relative mx-auto flex min-h-screen w-full max-w-md flex-col overflow-hidden">
+    <main className={`relative mx-auto flex min-h-screen w-full max-w-md flex-col overflow-hidden ${theme === "light" ? "light" : "dark"}`}>
       <AnimatePresence mode="wait">
         {screen === "splash" && <SplashScreen key="s" />}
         {screen === "welcome" && (
@@ -144,7 +171,7 @@ function PunchMeApp() {
         )}
         {screen === "login" && (
           <LoginScreen
-            key="li"
+            key="l"
             onDone={(p) => {
               setPlayer(p);
               saveLoginId(p.id);
@@ -208,6 +235,8 @@ function PunchMeApp() {
           <SettingsScreen
             key="st"
             player={player}
+            currentTheme={theme}
+            onToggleTheme={toggleTheme}
             onBack={() => setScreen("play")}
             onLogout={() => {
               clearLoginId();
@@ -1067,7 +1096,7 @@ function PlayScreen({
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = setTimeout(() => {
       if (hasPunchedRef.current) onSessionEnd({ ...sessionRef.current });
-    }, 4000);
+    }, 15000);
 
     // Roll dodge swinging alert
     punchesSinceLastDodgeRef.current++;
@@ -1193,12 +1222,13 @@ function PlayScreen({
     setTimeout(() => setFloaters((f) => f.filter((p) => p.id !== fid)), 800);
 
     // Shark burst flings
-    const burstBase = ++idRef.current;
+    const burstBase = idRef.current;
     const burstCount = moveType === "uppercut" ? 10 : 6;
     const burst = Array.from({ length: burstCount }, (_, i) => ({
-      id: burstBase + i,
+      id: burstBase + i + 1,
       angle: (360 / burstCount) * i + Math.random() * 25,
     }));
+    idRef.current += burstCount;
     setSharks((s) => {
       const next = [...s, ...burst];
       return next.length > MAX_SHARKS ? next.slice(next.length - MAX_SHARKS) : next;
