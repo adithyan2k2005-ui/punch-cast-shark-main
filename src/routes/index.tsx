@@ -361,9 +361,15 @@ function SignupScreen({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    const n = name.trim();
+    const rawName = name.trim();
+    if (!rawName) return setErr("Please enter your name.");
+    
+    const n = rawName
+      .split(/\s+/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+
     const a = Number(age);
-    if (!n) return setErr("Please enter your name.");
     if (!Number.isFinite(a) || a < 4 || a > 120) return setErr("Enter a valid age (4–120).");
     setLoading(true);
 
