@@ -15,8 +15,24 @@ import {
   progressInLevel,
   saveCaption,
   saveLoginId,
+  SKINS,
+  type Skin,
+  getUnlockedSkins,
+  unlockSkin,
+  getSelectedSkin,
+  setSelectedSkin,
 } from "@/lib/game";
-import { isMuted, playLevelUp, playPunch, setMuted } from "@/lib/audio";
+import {
+  isMuted,
+  playLevelUp,
+  playPunch,
+  setMuted,
+  playUppercut,
+  playSlam,
+  playCrit,
+  playDodge,
+  playHitStun,
+} from "@/lib/audio";
 import {
   type ActivePowerUp,
   rollPowerUp,
@@ -157,11 +173,20 @@ function PunchMeApp() {
             key="pl"
             initial={player}
             onSettings={() => setScreen("settings")}
+            onShop={() => setScreen("shop")}
             onLeaderboard={() => openLeaderboard("play")}
             onSessionEnd={(stats) => {
               setSessionStats(stats);
               setScreen("summary");
             }}
+          />
+        )}
+        {screen === "shop" && player && (
+          <ShopScreen
+            key="sh"
+            player={player}
+            onUpdatePlayer={(p) => setPlayer(p)}
+            onBack={() => setScreen("play")}
           />
         )}
         {screen === "summary" && player && (
@@ -636,6 +661,142 @@ function ResumeScreen({
   );
 }
 
+/* ---------------- Shop ---------------- */
+function ShopScreen({
+  player,
+  onUpdatePlayer,
+  onBack,
+}: {
+  player: Player;
+  onUpdatePlayer: (p: Player) => void;
+  onBack: () => void;
+}) {
+  const [unlocked, setUnlocked] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string>("default");
+  const [loading, setLoading] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    setUnlocked(getUnlockedSkins());
+    setSelected(getSelectedSkin());
+  }, []);
+
+  async function handleBuy(skin: Skin) {
+    if (player.score < skin.price) {
+      setErr(`Not enough points to buy ${skin.name}! Keep punching the bag.`);
+      setTimeout(() => setErr(null), 3000);
+      return;
+    }
+
+    setLoading(skin.id);
+    const newScore = player.score - skin.price;
+
+    const { data, error } = await supabase
+      .from("players")
+      .update({ score: newScore })
+      .eq("id", player.id)
+      .select()
+      .single();
+
+    setLoading(null);
+
+    if (error || !data) {
+      setErr(error?.message || "Transaction failed. Try again.");
+      setTimeout(() => setErr(null), 3000);
+      return;
+    }
+
+    // Success
+    const nextUnlocked = unlockSkin(skin.id);
+    setUnlocked(nextUnlocked);
+    onUpdatePlayer(data as Player);
+    playLevelUp(); // play success chime
+  }
+
+  function handleSelect(skin: Skin) {
+    setSelectedSkin(skin.id);
+    setSelected(skin.id);
+  }
+
+  return (
+    <ScreenWrap>
+      <BackBar onBack={onBack} title="Skins Shop" />
+
+      {/* Points indicator */}
+      <div className="mt-4 glass rounded-2xl p-4 text-center">
+        <div className="text-xs uppercase tracking-widest text-muted-foreground">Your Balance</div>
+        <div className="display text-3xl text-accent mt-1">{player.score.toLocaleString()} <span className="text-sm font-sans text-muted-foreground">pts</span></div>
+      </div>
+
+      {err && (
+        <motion.p
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-3 rounded-xl bg-destructive/15 px-4 py-2 text-center text-sm text-destructive"
+        >
+          {err}
+        </motion.p>
+      )}
+
+      {/* Skins list */}
+      <div className="mt-6 flex flex-1 flex-col gap-4 overflow-y-auto pr-1">
+        {SKINS.map((skin) => {
+          const isUnlocked = unlocked.includes(skin.id);
+          const isSelected = selected === skin.id;
+          const isBuying = loading === skin.id;
+
+          return (
+            <div
+              key={skin.id}
+              className={`flex items-center justify-between rounded-2xl border p-4 transition-all duration-200 bg-card/40 ${
+                isSelected ? "border-accent shadow-md bg-card/75" : "border-border/60"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-4xl">{skin.emoji}</div>
+                <div className="flex-1">
+                  <div className="font-bold text-sm leading-snug">{skin.name}</div>
+                  <div className="text-[11px] text-muted-foreground leading-snug mt-0.5">{skin.description}</div>
+                  {skin.price > 0 && !isUnlocked && (
+                    <div className="text-[10px] text-accent font-semibold mt-1">Price: {skin.price} pts</div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                {isUnlocked ? (
+                  isSelected ? (
+                    <button
+                      disabled
+                      className="rounded-full bg-accent/20 border border-accent/40 px-3.5 py-1.5 text-xs font-bold text-accent select-none"
+                    >
+                      Active
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleSelect(skin)}
+                      className="rounded-full bg-muted border border-border px-3.5 py-1.5 text-xs font-bold text-foreground transition-all hover:bg-card active:scale-95"
+                    >
+                      Select
+                    </button>
+                  )
+                ) : (
+                  <button
+                    disabled={isBuying}
+                    onClick={() => handleBuy(skin)}
+                    className="rounded-full bg-accent text-accent-foreground px-3.5 py-1.5 text-xs font-bold transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+                  >
+                    {isBuying ? "..." : `Buy`}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </ScreenWrap>
+  );
+}
 /* ---------------- Play ---------------- */
 
 const MAX_FLOATERS = 12;
@@ -644,11 +805,13 @@ const MAX_SHARKS = 30;
 function PlayScreen({
   initial,
   onSettings,
+  onShop,
   onLeaderboard,
   onSessionEnd,
 }: {
   initial: Player;
   onSettings: () => void;
+  onShop: () => void;
   onLeaderboard: () => void;
   onSessionEnd: (stats: SessionStats) => void;
 }) {
@@ -657,9 +820,10 @@ function PlayScreen({
   const [level, setLevel] = useState(initial.level);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showHighScore, setShowHighScore] = useState(false);
-  const [floaters, setFloaters] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
+  const [floaters, setFloaters] = useState<{ id: number; x: number; y: number; color: string; text: string; isCrit?: boolean }[]>([]);
   const [sharks, setSharks] = useState<{ id: number; angle: number }[]>([]);
   const [shake, setShake] = useState(0);
+  
   // Combo counter
   const [combo, setCombo] = useState(0);
   const [showCombo, setShowCombo] = useState(false);
@@ -695,21 +859,95 @@ function PlayScreen({
   // Reset highAnnouncedRef whenever the player id changes (new session)
   const highAnnouncedRef = useRef(initial.score <= initial.high_score);
   const [caption, setCaption] = useState(DEFAULT_CAPTION);
-  useEffect(() => setCaption(loadCaption()), []);
+  
+  // New features state
+  const [selectedSkin, setSelectedSkinState] = useState<string>("default");
+  const [targetPos, setTargetPos] = useState<{ x: number; y: number } | null>(null);
+  const [sparkles, setSparkles] = useState<{ id: number; x: number; y: number; tx: number; ty: number }[]>([]);
+  const [dodgeState, setDodgeState] = useState<"idle" | "warning" | "dodged" | "failed" | "stunned">("idle");
+  const [dodgeProgress, setDodgeProgress] = useState(100);
+  const [shakeExtreme, setShakeExtreme] = useState(false);
+  const punchesSinceLastDodgeRef = useRef(0);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Refresh caption whenever screen becomes visible again (e.g. after settings).
+  // Load selected skin on mount
+  useEffect(() => {
+    setSelectedSkinState(getSelectedSkin());
+  }, []);
+
+  // Update skin if user returns from shop
+  useEffect(() => {
+    const handleFocus = () => {
+      setSelectedSkinState(getSelectedSkin());
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, []);
+
+  // Target spot spawner
+  const spawnTarget = useCallback(() => {
+    const x = 50 + Math.random() * 100; // 50px to 150px (inside 200px SVG)
+    const y = 80 + Math.random() * 100; // 80px to 180px (inside 250px SVG)
+    setTargetPos({ x, y });
+  }, []);
+
+  // Spawn target on mount
+  useEffect(() => {
+    spawnTarget();
+  }, [spawnTarget]);
+
+  // Target auto-relocate if not hit
+  useEffect(() => {
+    const interval = setInterval(() => {
+      spawnTarget();
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [spawnTarget]);
+
+  // QTE Dodge Timer
+  useEffect(() => {
+    if (dodgeState !== "warning") return;
+    const duration = 1200; // 1.2s QTE window
+    const intervalTime = 30;
+    const decrement = (100 / duration) * intervalTime;
+
+    const timer = setInterval(() => {
+      setDodgeProgress((prev) => {
+        if (prev <= 0) {
+          clearInterval(timer);
+          setDodgeState("stunned");
+          setCombo(0);
+          playHitStun();
+          setShakeExtreme(true);
+          setTimeout(() => setShakeExtreme(false), 400);
+          setTimeout(() => {
+            setDodgeState("idle");
+          }, 1200);
+          return 0;
+        }
+        return prev - decrement;
+      });
+    }, intervalTime);
+
+    return () => clearInterval(timer);
+  }, [dodgeState]);
+
+  const selectedSkinObj = SKINS.find((s) => s.id === selectedSkin) || SKINS[0];
+  const color = selectedSkinObj?.color || bagColor(level);
+  const scale = bagScale(level);
+
+  // Refresh caption whenever screen becomes visible again
   useEffect(() => {
     const onFocus = () => setCaption(loadCaption());
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  // Debounced DB save — always uses the latest pendingRef snapshot.
+  // Debounced DB save
   useEffect(() => {
     if (!pendingRef.current) return;
     const snapshot = { ...pendingRef.current };
     const t = setTimeout(async () => {
-      // Only save if pendingRef still matches (no newer pending save queued up)
       if (
         pendingRef.current &&
         pendingRef.current.score === snapshot.score
@@ -727,10 +965,7 @@ function PlayScreen({
     return () => clearTimeout(t);
   }, [score, level, high, initial.id]);
 
-  const color = bagColor(level);
-  const scale = bagScale(level);
-
-  // Cleanup idle timer and power-up timer on unmount
+  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -738,9 +973,9 @@ function PlayScreen({
     };
   }, []);
 
-  // Achievement toast display — show one at a time from queue
+  // Achievement toast queue display
   useEffect(() => {
-    if (achievementToast) return; // already showing one
+    if (achievementToast) return;
     const next = achievementQueueRef.current.shift();
     if (next) {
       setAchievementToast(next);
@@ -750,20 +985,100 @@ function PlayScreen({
     }
   }, [achievementToast]);
 
-  function punch(e: React.MouseEvent | React.TouchEvent) {
-    // Prevent click from also firing on touch devices
-    if (e.type === "touchstart") {
-      e.preventDefault();
-    }
+  function handleDodge() {
+    if (dodgeState !== "warning") return;
+    setDodgeState("dodged");
+    playDodge();
 
-    // Idle detection: after 4s of no punching, show session summary
+    // Reward points for successful dodge
+    const points = 50;
+    setScore((prev) => {
+      const next = prev + points;
+      let newHigh = high;
+      if (next > high) {
+        newHigh = next;
+        setHigh(newHigh);
+      }
+      const newLevel = levelFromScore(next);
+      if (newLevel > level) {
+        setLevel(newLevel);
+        setShowLevelUp(true);
+        playLevelUp();
+        setTimeout(() => setShowLevelUp(false), 1800);
+      }
+      pendingRef.current = { score: next, level: Math.max(newLevel, level), high: newHigh };
+      return next;
+    });
+
+    setTimeout(() => {
+      setDodgeState("idle");
+    }, 1000);
+  }
+
+  function handlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    if (dodgeState === "stunned" || dodgeState === "warning") return;
+    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+  }
+
+  function handlePointerUp(e: React.PointerEvent<HTMLButtonElement>) {
+    if (dodgeState === "stunned" || dodgeState === "warning") {
+      if (dodgeState === "stunned") playHitStun();
+      return;
+    }
+    if (!pointerStartRef.current) return;
+    const diffX = e.clientX - pointerStartRef.current.x;
+    const diffY = e.clientY - pointerStartRef.current.y;
+    pointerStartRef.current = null;
+
+    const threshold = 40;
+    if (Math.abs(diffX) > threshold || Math.abs(diffY) > threshold) {
+      // Swipe Detected
+      if (Math.abs(diffY) > Math.abs(diffX)) {
+        if (diffY < -threshold) {
+          triggerPunch("uppercut", e);
+        } else if (diffY > threshold) {
+          triggerPunch("slam", e);
+        }
+      } else {
+        if (diffX < -threshold) {
+          triggerPunch("hook-left", e);
+        } else if (diffX > threshold) {
+          triggerPunch("hook-right", e);
+        }
+      }
+    } else {
+      // Tap Detected
+      const rect = bagRef.current?.getBoundingClientRect();
+      if (rect) {
+        const relativeX = e.clientX - rect.left;
+        if (relativeX < rect.width / 2) {
+          triggerPunch("jab", e);
+        } else {
+          triggerPunch("hook", e);
+        }
+      } else {
+        triggerPunch("jab", e);
+      }
+    }
+  }
+
+  function triggerPunch(moveType: string, e: React.PointerEvent<HTMLButtonElement>) {
     hasPunchedRef.current = true;
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = setTimeout(() => {
       if (hasPunchedRef.current) onSessionEnd({ ...sessionRef.current });
     }, 4000);
 
-    // Power-up: roll for a new one if none active
+    // Roll dodge swinging alert
+    punchesSinceLastDodgeRef.current++;
+    if (punchesSinceLastDodgeRef.current >= 13 + Math.floor(Math.random() * 5)) {
+      punchesSinceLastDodgeRef.current = 0;
+      setDodgeState("warning");
+      setDodgeProgress(100);
+      return;
+    }
+
+    // Power-up roll
     if (!activePowerUp || Date.now() >= activePowerUp.expiresAt) {
       const rolled = rollPowerUp();
       if (rolled) {
@@ -777,7 +1092,6 @@ function PlayScreen({
         setTimeout(() => setShowPowerUpToast(false), 1500);
         sessionRef.current.powerUpsActivated++;
         totalPowerUpsRef.current++;
-        // Clear power-up when it expires
         if (powerUpTimerRef.current) clearTimeout(powerUpTimerRef.current);
         powerUpTimerRef.current = setTimeout(() => {
           setActivePowerUp(null);
@@ -785,39 +1099,105 @@ function PlayScreen({
       }
     }
 
-    // Calculate points (power-up aware)
-    const pointMultiplier = getPointMultiplier(activePowerUp);
-    const pointsThisPunch = POINTS_PER_PUNCH * pointMultiplier;
-    const isDoubleActive = pointMultiplier > 1;
-
-    // Session tracking
-    sessionRef.current.punches++;
-
-    playPunch();
     const rect = bagRef.current?.getBoundingClientRect();
-    let x = rect ? rect.width / 2 : 0;
-    let y = rect ? rect.height / 2 : 0;
-    if ("touches" in e && e.touches[0] && rect) {
-      x = e.touches[0].clientX - rect.left;
-      y = e.touches[0].clientY - rect.top;
-    } else if ("clientX" in e && rect) {
-      x = e.clientX - rect.left;
-      y = e.clientY - rect.top;
+    let hitX = rect ? rect.width / 2 : 100;
+    let hitY = rect ? rect.height / 2 : 125;
+    if (rect && e) {
+      hitX = e.clientX - rect.left;
+      hitY = e.clientY - rect.top;
     }
 
-    // Score floater — capped at MAX_FLOATERS
+    let moveLabel = "";
+    let basePoints = 1;
+    let customSound = "";
+
+    if (moveType === "uppercut") {
+      moveLabel = "UPPERCUT";
+      basePoints = 3;
+      customSound = "uppercut";
+    } else if (moveType === "slam") {
+      moveLabel = "SLAM";
+      basePoints = 2;
+      customSound = "slam";
+    } else if (moveType.startsWith("hook")) {
+      moveLabel = "HOOK";
+      basePoints = 1;
+      customSound = "punch";
+    } else {
+      moveLabel = "JAB";
+      basePoints = 1;
+      customSound = "punch";
+    }
+
+    // Collision target check
+    let isCrit = false;
+    if (targetPos) {
+      const dx = hitX - targetPos.x;
+      const dy = hitY - targetPos.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 38) {
+        isCrit = true;
+        spawnTarget();
+      }
+    }
+
+    const pointMultiplier = getPointMultiplier(activePowerUp);
+    const critMultiplier = isCrit ? 5 : 1;
+    const pointsThisPunch = basePoints * critMultiplier * pointMultiplier;
+    const isDoubleActive = pointMultiplier > 1;
+
+    // Trigger Audio Synthesis
+    if (isCrit) {
+      playCrit();
+    } else if (customSound === "uppercut") {
+      playUppercut();
+    } else if (customSound === "slam") {
+      playSlam();
+    } else {
+      playPunch();
+    }
+
+    // Generate gold sparkle particles
+    if (isCrit) {
+      const newSparkles = Array.from({ length: 12 }, (_, idx) => {
+        const angle = (idx * (360 / 12) * Math.PI) / 180;
+        const distance = 40 + Math.random() * 50;
+        return {
+          id: ++idRef.current,
+          x: hitX,
+          y: hitY,
+          tx: Math.cos(angle) * distance,
+          ty: Math.sin(angle) * distance,
+        };
+      });
+      setSparkles((s) => [...s, ...newSparkles]);
+      setTimeout(() => {
+        setSparkles((s) => s.filter((sp) => !newSparkles.find((ns) => ns.id === sp.id)));
+      }, 700);
+    }
+
+    if (moveType === "slam") {
+      setShakeExtreme(true);
+      setTimeout(() => setShakeExtreme(false), 400);
+    } else {
+      setShake((n) => n + 1);
+    }
+
+    // Floating text label
+    const labelText = `${isCrit ? "🔥 CRIT " : ""}${moveLabel} +${pointsThisPunch}`;
     const fid = ++idRef.current;
     setFloaters((f) => {
-      const next = [...f, { id: fid, x, y, color }];
+      const next = [...f, { id: fid, x: hitX, y: hitY, color, text: labelText, isCrit }];
       return next.length > MAX_FLOATERS ? next.slice(next.length - MAX_FLOATERS) : next;
     });
     setTimeout(() => setFloaters((f) => f.filter((p) => p.id !== fid)), 800);
 
-    // Shark burst — capped at MAX_SHARKS
+    // Shark burst flings
     const burstBase = ++idRef.current;
-    const burst = Array.from({ length: 6 }, (_, i) => ({
+    const burstCount = moveType === "uppercut" ? 10 : 6;
+    const burst = Array.from({ length: burstCount }, (_, i) => ({
       id: burstBase + i,
-      angle: (360 / 6) * i + Math.random() * 25,
+      angle: (360 / burstCount) * i + Math.random() * 25,
     }));
     setSharks((s) => {
       const next = [...s, ...burst];
@@ -827,8 +1207,6 @@ function PlayScreen({
       () => setSharks((s) => s.filter((k) => !burst.find((b) => b.id === k.id))),
       650,
     );
-
-    setShake((n) => n + 1);
 
     // Combo tracking — count punches in the last 1000ms
     const now = Date.now();
@@ -849,6 +1227,8 @@ function PlayScreen({
         punchTimestampsRef.current = [];
       }, 900);
     }
+
+    sessionRef.current.punches++;
 
     setScore((prev) => {
       const next = prev + pointsThisPunch;
@@ -903,8 +1283,44 @@ function PlayScreen({
 
   return (
     <ScreenWrap>
+      {/* Warning backdrop strobe for QTE dodge warnings */}
+      {dodgeState === "warning" && (
+        <div className="pointer-events-none absolute inset-0 z-40 animate-warning-flash rounded-[2.5rem]" />
+      )}
+      {dodgeState === "stunned" && (
+        <div className="pointer-events-none absolute inset-0 z-40 bg-destructive/25 rounded-[2.5rem]" />
+      )}
+
+      {/* Warning indicators */}
+      {dodgeState === "warning" && (
+        <div className="absolute top-[35%] left-1/2 z-50 w-[80%] -translate-x-1/2 rounded-2xl border border-destructive bg-background/95 p-4 text-center shadow-2xl glass">
+          <div className="display text-lg text-destructive animate-pulse">⚠️ SWING BACK!</div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">DODGE IMMEDIATELY!</p>
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full bg-destructive transition-all duration-30"
+              style={{ width: `${dodgeProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {dodgeState === "stunned" && (
+        <div className="absolute top-[35%] left-1/2 z-50 w-[80%] -translate-x-1/2 rounded-2xl border border-red-500 bg-background/95 p-4 text-center shadow-2xl glass">
+          <div className="display text-lg text-red-500 animate-pulse font-bold">💥 HIT & STUNNED!</div>
+          <p className="text-xs text-muted-foreground mt-1">Dodge failed. Combo lost.</p>
+        </div>
+      )}
+
+      {dodgeState === "dodged" && (
+        <div className="absolute top-[35%] left-1/2 z-50 w-[80%] -translate-x-1/2 rounded-2xl border border-emerald-500 bg-background/95 p-4 text-center shadow-2xl glass">
+          <div className="display text-lg text-emerald-500">🛡️ PERFECT DODGE!</div>
+          <p className="text-xs text-muted-foreground mt-1">Bonus +50 points awarded!</p>
+        </div>
+      )}
+
       {/* Top HUD — glassmorphism card */}
-      <div className="glass rounded-2xl px-4 py-3">
+      <div className="glass rounded-2xl px-4 py-3 z-10">
         <div className="flex items-center justify-between">
           {/* Level */}
           <div className="flex flex-col items-center min-w-[60px]">
@@ -929,16 +1345,23 @@ function PlayScreen({
           {/* Action buttons */}
           <div className="flex items-center gap-2">
             <button
+              onClick={onShop}
+              aria-label="Skins Shop"
+              className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card/60 text-lg transition-all hover:bg-muted hover:scale-110 active:scale-95"
+            >
+              👕
+            </button>
+            <button
               onClick={onLeaderboard}
               aria-label="Leaderboard"
-              className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card/60 text-xl transition-all hover:bg-muted hover:scale-110 active:scale-95"
+              className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card/60 text-lg transition-all hover:bg-muted hover:scale-110 active:scale-95"
             >
               🏆
             </button>
             <button
               onClick={onSettings}
               aria-label="Settings"
-              className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card/60 text-xl transition-all hover:bg-muted hover:scale-110 active:scale-95"
+              className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card/60 text-lg transition-all hover:bg-muted hover:scale-110 active:scale-95"
             >
               ⚙︎
             </button>
@@ -970,24 +1393,56 @@ function PlayScreen({
       <div className="relative flex flex-1 items-center justify-center">
         <motion.button
           ref={bagRef}
-          onClick={punch}
-          onTouchStart={punch}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
           aria-label="Punch the bag"
-          className="relative touch-none select-none"
+          className="relative touch-none select-none outline-none"
           animate={{ scale: scale * superSizeMultiplier }}
           transition={{ type: "spring", stiffness: 180, damping: 14 }}
         >
           <motion.div
             key={shake}
-            animate={{
-              rotate: [0, -7, 7, -4, 4, 0],
-              y: [0, 5, -3, 4, 0],
-            }}
+            className={shakeExtreme ? "animate-shake-extreme" : ""}
+            animate={
+              shakeExtreme
+                ? {}
+                : {
+                    rotate: [0, -7, 7, -4, 4, 0],
+                    y: [0, 5, -3, 4, 0],
+                  }
+            }
             transition={{ duration: 0.32 }}
             whileTap={{ scale: 0.91 }}
           >
-            <BagArt color={color} scale={1} glowing />
+            <BagArt color={color} scale={1} glowing faceEmoji={selectedSkinObj?.faceEmoji} />
           </motion.div>
+
+          {/* Target critical bullseye */}
+          {targetPos && (
+            <div
+              className="pointer-events-none absolute flex h-10 w-10 animate-crit-pulse items-center justify-center rounded-full border-2 border-yellow-400 bg-yellow-400/25 z-10"
+              style={{
+                left: targetPos.x - 20,
+                top: targetPos.y - 20,
+              }}
+            >
+              <div className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+            </div>
+          )}
+
+          {/* Sparkles */}
+          {sparkles.map((s) => (
+            <span
+              key={s.id}
+              className="crit-sparkle h-2 w-2 z-20"
+              style={{
+                left: s.x,
+                top: s.y,
+                "--tx": `${s.tx}px`,
+                "--ty": `${s.ty}px`,
+              } as React.CSSProperties}
+            />
+          ))}
 
           {/* Score floaters */}
           <AnimatePresence>
@@ -995,17 +1450,23 @@ function PlayScreen({
               <motion.div
                 key={f.id}
                 initial={{ opacity: 1, y: 0, scale: 0.7 }}
-                animate={{ opacity: 0, y: -90, scale: 1.3 }}
+                animate={{ opacity: 0, y: -90, scale: 1.25 }}
+                exit={{ opacity: 0 }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
-                className="pointer-events-none absolute display text-3xl font-bold drop-shadow-lg"
+                className={`pointer-events-none absolute display font-bold drop-shadow-lg text-center whitespace-nowrap z-25 ${
+                  f.isCrit ? "text-xl text-yellow-400 font-extrabold" : "text-xs"
+                }`}
                 style={{
                   left: f.x,
                   top: f.y,
-                  color: f.color,
-                  textShadow: `0 0 12px ${f.color}99`,
+                  color: f.isCrit ? "#facc15" : f.color,
+                  textShadow: f.isCrit
+                    ? "0 0 16px #facc15, 0 0 8px #f97316"
+                    : `0 0 12px ${f.color}99`,
+                  transform: "translate(-50%, -100%)",
                 }}
               >
-                +{currentPointMultiplier > 1 ? POINTS_PER_PUNCH * currentPointMultiplier : POINTS_PER_PUNCH}
+                {f.text}
               </motion.div>
             ))}
           </AnimatePresence>
@@ -1023,7 +1484,7 @@ function PlayScreen({
                   y: Math.sin((s.angle * Math.PI) / 180) * 120,
                 }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
-                className="pointer-events-none absolute left-1/2 top-1/2 display text-xs font-bold tracking-widest text-accent drop-shadow-[0_0_8px_rgba(0,0,0,0.7)]"
+                className="pointer-events-none absolute left-1/2 top-1/2 display text-xs font-bold tracking-widest text-accent drop-shadow-[0_0_8px_rgba(0,0,0,0.7)] z-20"
                 style={{ translateX: "-50%", translateY: "-50%" }}
               >
                 {caption}
@@ -1041,7 +1502,7 @@ function PlayScreen({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8, y: -10 }}
               transition={{ type: "spring", stiffness: 300, damping: 18 }}
-              className="pointer-events-none absolute top-4 right-4 flex flex-col items-center rounded-2xl px-4 py-2 glass"
+              className="pointer-events-none absolute top-4 right-4 flex flex-col items-center rounded-2xl px-4 py-2 glass z-20"
             >
               <span className="display text-2xl leading-none" style={{ color }}>
                 {combo}x
@@ -1054,8 +1515,8 @@ function PlayScreen({
         </AnimatePresence>
       </div>
 
-      <p className="mt-3 text-center text-[11px] uppercase tracking-[0.35em] text-muted-foreground">
-        Tap the bag · Breathe · Let it out
+      <p className="mt-3 text-center text-[10px] uppercase tracking-[0.35em] text-muted-foreground z-10">
+        JAB (Tap left) · HOOK (Tap right) · UPPERCUT (Swipe Up) · SLAM (Swipe Down)
       </p>
 
       {/* Active Power-up indicator */}
@@ -1067,7 +1528,7 @@ function PlayScreen({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.9 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className="mx-auto mt-2 flex items-center gap-2 rounded-full px-4 py-2"
+            className="mx-auto mt-2 flex items-center gap-2 rounded-full px-4 py-2 z-10"
             style={{
               background: "linear-gradient(135deg, oklch(0.80 0.21 52 / 0.25), oklch(0.70 0.24 338 / 0.2))",
               border: "1px solid oklch(0.80 0.21 52 / 0.4)",
@@ -1076,10 +1537,10 @@ function PlayScreen({
           >
             <span className="text-xl">{activePowerUp.def.icon}</span>
             <div>
-              <div className="text-xs font-bold uppercase tracking-widest">
+              <div className="text-xs font-bold uppercase tracking-widest leading-none">
                 {activePowerUp.def.label}
               </div>
-              <div className="text-[10px] text-muted-foreground">
+              <div className="text-[9px] text-muted-foreground mt-0.5 leading-none">
                 {activePowerUp.def.description}
               </div>
             </div>
@@ -1105,7 +1566,7 @@ function PlayScreen({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -30, scale: 0.9 }}
             transition={{ type: "spring", stiffness: 280, damping: 20 }}
-            className="absolute left-4 right-4 top-4 z-30 flex items-center gap-3 rounded-2xl px-4 py-3"
+            className="absolute left-4 right-4 top-4 z-50 flex items-center gap-3 rounded-2xl px-4 py-3"
             style={{
               background: "linear-gradient(135deg, oklch(0.25 0.08 52 / 0.95), oklch(0.22 0.06 275 / 0.95))",
               border: "1px solid oklch(0.80 0.21 52 / 0.5)",
@@ -1134,7 +1595,7 @@ function PlayScreen({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-20 grid place-items-center bg-background/75 backdrop-blur-md"
+            className="absolute inset-0 z-30 grid place-items-center bg-background/75 backdrop-blur-md"
           >
             <motion.div
               initial={{ scale: 0.5, rotate: -8, y: 30 }}
@@ -1183,7 +1644,7 @@ function PlayScreen({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.9 }}
             transition={{ type: "spring", stiffness: 260, damping: 18 }}
-            className="absolute left-1/2 top-20 z-20 -translate-x-1/2 rounded-full border border-primary/50 bg-gradient-to-r from-primary to-secondary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-xl"
+            className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-full border border-primary/50 bg-gradient-to-r from-primary to-secondary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-xl"
             style={{ boxShadow: "0 0 24px oklch(0.78 0.19 55 / 0.5)" }}
           >
             ✨ New High Score!
@@ -1193,7 +1654,6 @@ function PlayScreen({
     </ScreenWrap>
   );
 }
-/* ---------------- Session Summary ---------------- */
 
 function SessionSummaryScreen({
   stats,
@@ -1832,7 +2292,17 @@ function LoadingDots() {
 }
 
 /* SVG punching bag — colored per level, scales up as levels progress. */
-function BagArt({ color, scale, glowing = false }: { color: string; scale: number; glowing?: boolean }) {
+function BagArt({
+  color,
+  scale,
+  glowing = false,
+  faceEmoji,
+}: {
+  color: string;
+  scale: number;
+  glowing?: boolean;
+  faceEmoji?: string;
+}) {
   const size = 200 * scale;
   const gradId = `bg-body-${color.replace("#", "")}`;
   return (
@@ -1869,6 +2339,21 @@ function BagArt({ color, scale, glowing = false }: { color: string; scale: numbe
       {/* stripes */}
       <rect x="40" y="88" width="120" height="10" fill="#00000030" />
       <rect x="40" y="152" width="120" height="10" fill="#00000030" />
+      
+      {/* face emoji overlay */}
+      {faceEmoji && (
+        <text
+          x="100"
+          y="135"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize="48"
+          style={{ userSelect: "none" }}
+        >
+          {faceEmoji}
+        </text>
+      )}
+
       {/* primary highlight band */}
       <rect x="50" y="48" width="16" height="155" rx="8" fill={`url(#${gradId}-shine)`} />
       {/* secondary specular dot */}

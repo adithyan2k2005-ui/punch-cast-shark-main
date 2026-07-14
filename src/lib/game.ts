@@ -63,5 +63,59 @@ export function saveCaption(text: string) {
   else localStorage.setItem(CAPTION_KEY, t.slice(0, 20).toUpperCase());
 }
 
+export interface Skin {
+  id: string;
+  name: string;
+  emoji: string;
+  price: number;
+  description: string;
+  color?: string; // Theme color overrides
+  faceEmoji?: string; // Custom face icon
+}
+
+export const SKINS: Skin[] = [
+  { id: "default", name: "Classic Bag", emoji: "🔴", price: 0, description: "Your reliable training partner" },
+  { id: "boss", name: "Grumpy Boss", emoji: "💼", price: 150, description: "Picture their face, take it out!", faceEmoji: "😡" },
+  { id: "kitty", name: "Cute Kitty", emoji: "🐱", price: 400, description: "A playful target, meow!", faceEmoji: "🐱", color: "#f43f5e" },
+  { id: "cyber", name: "Neon Cyber", emoji: "⚡", price: 1000, description: "Glowing high-tech holographic bag", faceEmoji: "🤖", color: "#a855f7" },
+  { id: "shark", name: "Shark Master", emoji: "🦈", price: 2000, description: "Fierce predator of the ocean", faceEmoji: "🦈", color: "#06b6d4" }
+];
+
+const UNLOCKED_SKINS_KEY = "pm_unlocked_skins";
+const SELECTED_SKIN_KEY = "pm_selected_skin";
+
+export function getUnlockedSkins(): string[] {
+  if (typeof window === "undefined") return ["default"];
+  try {
+    const raw = localStorage.getItem(UNLOCKED_SKINS_KEY);
+    if (!raw) return ["default"];
+    return JSON.parse(raw) as string[];
+  } catch {
+    return ["default"];
+  }
+}
+
+export function unlockSkin(id: string): string[] {
+  const current = getUnlockedSkins();
+  if (current.includes(id)) return current;
+  const next = [...current, id];
+  if (typeof window !== "undefined") {
+    localStorage.setItem(UNLOCKED_SKINS_KEY, JSON.stringify(next));
+  }
+  return next;
+}
+
+export function getSelectedSkin(): string {
+  if (typeof window === "undefined") return "default";
+  return localStorage.getItem(SELECTED_SKIN_KEY) || "default";
+}
+
+export function setSelectedSkin(id: string) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(SELECTED_SKIN_KEY, id);
+  }
+}
+
+
 
 
