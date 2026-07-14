@@ -251,7 +251,7 @@ function SplashScreen() {
               width: 220,
               height: 220,
               background:
-                "radial-gradient(circle, oklch(0.78 0.19 55 / 0.18) 0%, transparent 70%)",
+                "radial-gradient(circle, var(--primary) 0%, transparent 70%)",
               animation: "glow-pulse 2s ease-in-out infinite",
             }}
           />
@@ -261,7 +261,7 @@ function SplashScreen() {
               width: 300,
               height: 300,
               background:
-                "radial-gradient(circle, oklch(0.68 0.22 340 / 0.1) 0%, transparent 70%)",
+                "radial-gradient(circle, var(--accent) 0%, transparent 70%)",
               animation: "glow-pulse 2.5s ease-in-out infinite 0.4s",
             }}
           />
@@ -275,11 +275,11 @@ function SplashScreen() {
               className="display text-8xl leading-none"
               style={{
                 background:
-                  "linear-gradient(135deg, oklch(0.80 0.21 52), oklch(0.70 0.24 338), oklch(0.84 0.22 178))",
+                  "linear-gradient(135deg, var(--primary), var(--accent))",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
-                filter: "drop-shadow(0 0 30px oklch(0.78 0.19 55 / 0.5))",
+                filter: "drop-shadow(0 0 30px var(--primary))",
               }}
             >
               PUNCH
@@ -335,7 +335,7 @@ function WelcomeScreen({
           className="display text-4xl tracking-widest"
           style={{
             background:
-              "linear-gradient(135deg, oklch(0.80 0.21 52), oklch(0.84 0.22 178))",
+              "linear-gradient(135deg, var(--primary), var(--accent))",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
@@ -593,7 +593,7 @@ function ResumeScreen({
           className="display text-3xl tracking-widest"
           style={{
             background:
-              "linear-gradient(135deg, oklch(0.80 0.21 52), oklch(0.84 0.22 178))",
+              "linear-gradient(135deg, var(--primary), var(--accent))",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
@@ -1530,8 +1530,8 @@ function PlayScreen({
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
             className="mx-auto mt-2 flex items-center gap-2 rounded-full px-4 py-2 z-10"
             style={{
-              background: "linear-gradient(135deg, oklch(0.80 0.21 52 / 0.25), oklch(0.70 0.24 338 / 0.2))",
-              border: "1px solid oklch(0.80 0.21 52 / 0.4)",
+              background: "linear-gradient(135deg, color-mix(in oklch, var(--primary) 25%, transparent), color-mix(in oklch, var(--secondary) 20%, transparent))",
+              border: "1px solid color-mix(in oklch, var(--primary) 40%, transparent)",
               animation: "powerup-glow 1.5s ease-in-out infinite",
             }}
           >
@@ -1568,9 +1568,9 @@ function PlayScreen({
             transition={{ type: "spring", stiffness: 280, damping: 20 }}
             className="absolute left-4 right-4 top-4 z-50 flex items-center gap-3 rounded-2xl px-4 py-3"
             style={{
-              background: "linear-gradient(135deg, oklch(0.25 0.08 52 / 0.95), oklch(0.22 0.06 275 / 0.95))",
-              border: "1px solid oklch(0.80 0.21 52 / 0.5)",
-              boxShadow: "0 8px 32px oklch(0.80 0.21 52 / 0.3)",
+              background: "linear-gradient(135deg, color-mix(in oklch, var(--card) 95%, transparent), color-mix(in oklch, var(--background) 95%, transparent))",
+              border: "1px solid color-mix(in oklch, var(--primary) 30%, transparent)",
+              boxShadow: "0 12px 40px rgba(0, 0, 0, 0.5)",
               backdropFilter: "blur(12px)",
             }}
           >
@@ -1609,7 +1609,7 @@ function PlayScreen({
               <div
                 className="mt-2 display text-6xl"
                 style={{
-                  background: `linear-gradient(135deg, ${color}, oklch(0.84 0.22 178))`,
+                  background: `linear-gradient(135deg, ${color}, var(--primary))`,
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   backgroundClip: "text",
@@ -1691,7 +1691,7 @@ function SessionSummaryScreen({
             className="mt-2 display text-4xl tracking-widest"
             style={{
               background:
-                "linear-gradient(135deg, oklch(0.80 0.21 52), oklch(0.84 0.22 178))",
+                "linear-gradient(135deg, var(--primary), var(--accent))",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
@@ -1742,8 +1742,8 @@ function SessionSummaryScreen({
                   key={a.id}
                   className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
                   style={{
-                    background: "linear-gradient(135deg, oklch(0.80 0.21 52 / 0.2), oklch(0.70 0.24 338 / 0.15))",
-                    border: "1px solid oklch(0.80 0.21 52 / 0.35)",
+                    background: "linear-gradient(135deg, color-mix(in oklch, var(--primary) 20%, transparent), color-mix(in oklch, var(--secondary) 15%, transparent))",
+                    border: "1px solid color-mix(in oklch, var(--primary) 35%, transparent)",
                   }}
                 >
                   <span>{a.icon}</span>
@@ -1867,8 +1867,8 @@ function LeaderboardScreen({
           className="mt-4 rounded-2xl border border-border px-4 py-3"
           style={{
             background:
-              "linear-gradient(135deg, oklch(0.80 0.21 52 / 0.15), oklch(0.70 0.24 338 / 0.1))",
-            borderColor: "oklch(0.80 0.21 52 / 0.35)",
+              "linear-gradient(135deg, color-mix(in oklch, var(--primary) 15%, transparent), color-mix(in oklch, var(--secondary) 10%, transparent))",
+            borderColor: "color-mix(in oklch, var(--primary) 35%, transparent)",
           }}
         >
           <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
@@ -1938,7 +1938,7 @@ function LeaderboardScreen({
           transition={{ duration: 0.3 }}
           className="mt-3 overflow-hidden rounded-2xl border border-border"
           style={{
-            background: "oklch(0.19 0.05 275 / 0.7)",
+            background: "color-mix(in oklch, var(--card) 70%, transparent)",
             backdropFilter: "blur(12px)",
           }}
         >
@@ -1975,7 +1975,7 @@ function LeaderboardScreen({
                       className={`border-border/50 ${isMe ? "bg-primary/10 hover:bg-primary/10" : ""}`}
                       style={
                         isMe
-                          ? { borderLeft: "3px solid oklch(0.80 0.21 52 / 0.7)" }
+                          ? { borderLeft: "3px solid var(--primary)" }
                           : undefined
                       }
                     >
@@ -1997,9 +1997,9 @@ function LeaderboardScreen({
                             <span
                               className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
                               style={{
-                                background: "oklch(0.80 0.21 52 / 0.25)",
-                                color: "oklch(0.80 0.21 52)",
-                                border: "1px solid oklch(0.80 0.21 52 / 0.4)",
+                                background: "color-mix(in oklch, var(--primary) 25%, transparent)",
+                                color: "var(--primary)",
+                                border: "1px solid color-mix(in oklch, var(--primary) 40%, transparent)",
                               }}
                             >
                               YOU
@@ -2134,11 +2134,11 @@ function SettingsScreen({
             className={`relative h-8 w-14 rounded-full transition-all duration-300 ${
               mutedState
                 ? "bg-muted"
-                : "bg-gradient-to-r from-primary to-secondary"
+                : "bg-primary"
             }`}
             style={
               !mutedState
-                ? { boxShadow: "0 0 12px oklch(0.78 0.19 55 / 0.4)" }
+                ? { boxShadow: "0 0 12px color-mix(in oklch, var(--primary) 40%, transparent)" }
                 : {}
             }
           >
@@ -2210,8 +2210,8 @@ function PrimaryButton({
   return (
     <button
       {...rest}
-      className="w-full rounded-2xl bg-gradient-to-r from-primary to-secondary px-5 py-4 font-bold text-primary-foreground shadow-lg transition-all active:scale-[0.97] hover:opacity-95 hover:shadow-primary/40 disabled:opacity-50 disabled:cursor-not-allowed"
-      style={{ boxShadow: "0 4px 20px oklch(0.78 0.19 55 / 0.3)" }}
+      className="w-full rounded-2xl bg-primary px-5 py-4 font-bold text-primary-foreground shadow-md transition-all active:scale-[0.97] hover:bg-primary/95 disabled:opacity-50 disabled:cursor-not-allowed"
+      style={{ boxShadow: "0 4px 20px color-mix(in oklch, var(--primary) 30%, transparent)" }}
     >
       {children}
     </button>
@@ -2225,7 +2225,7 @@ function SecondaryButton({
   return (
     <button
       {...rest}
-      className="w-full rounded-2xl border border-border bg-card/60 px-5 py-4 font-semibold text-foreground backdrop-blur-sm transition-all hover:bg-muted active:scale-[0.97]"
+      className="w-full rounded-2xl border border-border bg-muted/40 px-5 py-4 font-semibold text-foreground backdrop-blur-sm transition-all hover:bg-muted/70 active:scale-[0.97]"
     >
       {children}
     </button>

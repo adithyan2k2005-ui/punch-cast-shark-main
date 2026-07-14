@@ -3,18 +3,17 @@ export const POINTS_PER_LEVEL = 10;
 
 // Cheerful, distinct bag colors that cycle as the player levels up.
 export const BAG_COLORS = [
-  "#ef4444", // red
-  "#f97316", // orange
-  "#eab308", // yellow
-  "#22c55e", // green
-  "#06b6d4", // cyan
-  "#3b82f6", // blue
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#f43f5e", // rose
-  "#14b8a6", // teal
-  "#a855f7", // purple
-  "#facc15", // gold
+  "#d4af37", // metallic gold
+  "#8a9a86", // sage green
+  "#c3b091", // khaki/sand
+  "#a2b9bc", // slate/sea-foam
+  "#b8a9c9", // soft lavender grey
+  "#e0a899", // terracotta
+  "#96858f", // muted plum
+  "#625750", // warm clay
+  "#d6cbd3", // dusty grey
+  "#eca1a6", // rose quartz
+  "#bdc3c7", // silver/pewter
 ];
 
 export function bagColor(level: number) {
