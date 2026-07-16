@@ -76,7 +76,8 @@ type Screen =
   | "play"
   | "settings"
   | "leaderboard"
-  | "summary";
+  | "summary"
+  | "shop";
 
 /** Stats tracked for the current play session (reset when entering play). */
 type SessionStats = {
@@ -147,112 +148,368 @@ function PunchMeApp() {
   }, []);
 
   return (
-    <main className={`relative mx-auto flex min-h-screen w-full max-w-md flex-col overflow-hidden ${theme === "light" ? "light" : "dark"}`}>
-      <AnimatePresence mode="wait">
-        {screen === "splash" && <SplashScreen key="s" />}
-        {screen === "welcome" && (
-          <WelcomeScreen
-            key="w"
-            hasSaved={!!savedId}
-            onNew={() => setScreen("signup")}
-            onLogin={() => setScreen("login")}
-          />
+    <div className={`min-h-screen w-full transition-colors duration-300 ${theme === "light" ? "light" : "dark"} bg-background`}>
+      <div className="relative mx-auto flex min-h-screen w-full flex-col justify-center items-center p-0 sm:p-4 lg:p-6">
+        <GameBackground theme={theme} />
+
+        {/* Responsive Dashboard wrapper on desktop if player is logged in */}
+        {player && ["play", "shop", "settings", "summary", "leaderboard"].includes(screen) ? (
+          <div className="z-10 grid w-full max-w-6xl grid-cols-1 gap-6 px-4 lg:grid-cols-12 lg:px-0">
+            
+            {/* Desktop Left Sidebar: Achievements */}
+            <aside className="hidden lg:block lg:col-span-3 h-full">
+              <AchievementsSidebar />
+            </aside>
+
+            {/* Center: Main Game Screen */}
+            <main className="col-span-1 lg:col-span-6 relative flex min-h-[750px] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-card/45 backdrop-blur-xl shadow-2xl mx-auto text-foreground">
+              <AnimatePresence mode="wait">
+                {screen === "play" && (
+                  <PlayScreen
+                    key="pl"
+                    initial={player}
+                    onSettings={() => setScreen("settings")}
+                    onShop={() => setScreen("shop")}
+                    onLeaderboard={() => openLeaderboard("play")}
+                    onSessionEnd={(stats) => {
+                      setSessionStats(stats);
+                      setScreen("summary");
+                    }}
+                  />
+                )}
+                {screen === "shop" && (
+                  <ShopScreen
+                    key="sh"
+                    player={player}
+                    onUpdatePlayer={(p) => setPlayer(p)}
+                    onBack={() => setScreen("play")}
+                  />
+                )}
+                {screen === "summary" && (
+                  <SessionSummaryScreen
+                    key="sum"
+                    stats={sessionStats}
+                    onLeaderboard={() => openLeaderboard("summary")}
+                    onResume={() => setScreen("play")}
+                  />
+                )}
+                {screen === "leaderboard" && (
+                  <LeaderboardScreen
+                    key="lb"
+                    currentPlayerId={player.id}
+                    onBack={() => setScreen(leaderboardReturn)}
+                  />
+                )}
+                {screen === "settings" && (
+                  <SettingsScreen
+                    key="st"
+                    player={player}
+                    currentTheme={theme}
+                    onToggleTheme={toggleTheme}
+                    onBack={() => setScreen("play")}
+                    onLogout={() => {
+                      clearLoginId();
+                      setPlayer(null);
+                      setSavedId(null);
+                      setScreen("welcome");
+                    }}
+                    onExit={() => setScreen("welcome")}
+                  />
+                )}
+              </AnimatePresence>
+            </main>
+
+            {/* Desktop Right Sidebar: Leaderboard */}
+            <aside className="hidden lg:block lg:col-span-3 h-full">
+              <LeaderboardSidebar currentPlayerId={player.id} />
+            </aside>
+
+          </div>
+        ) : (
+          /* Locked centered panel for Welcome/Login/Signup/Splash screens */
+          <main className="z-10 relative flex min-h-[750px] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-card/45 backdrop-blur-xl shadow-2xl text-foreground">
+            <AnimatePresence mode="wait">
+              {screen === "splash" && <SplashScreen key="s" />}
+              {screen === "welcome" && (
+                <WelcomeScreen
+                  key="w"
+                  hasSaved={!!savedId}
+                  onNew={() => setScreen("signup")}
+                  onLogin={() => setScreen("login")}
+                />
+              )}
+              {screen === "signup" && (
+                <SignupScreen
+                  key="sn"
+                  onDone={(p) => {
+                    setPlayer(p);
+                    saveLoginId(p.id);
+                    setScreen("play");
+                  }}
+                  onBack={() => setScreen("welcome")}
+                />
+              )}
+              {screen === "login" && (
+                <LoginScreen
+                  key="l"
+                  onDone={(p) => {
+                    setPlayer(p);
+                    saveLoginId(p.id);
+                    setScreen("play");
+                  }}
+                  onBack={() => setScreen("welcome")}
+                />
+              )}
+              {screen === "resume" && savedId && (
+                <ResumeScreen
+                  key="rs"
+                  id={savedId}
+                  onDone={(p) => {
+                    setPlayer(p);
+                    setScreen("play");
+                  }}
+                  onSwitch={() => {
+                    clearLoginId();
+                    setSavedId(null);
+                    setScreen("welcome");
+                  }}
+                />
+              )}
+            </AnimatePresence>
+          </main>
         )}
-        {screen === "signup" && (
-          <SignupScreen
-            key="sn"
-            onDone={(p) => {
-              setPlayer(p);
-              saveLoginId(p.id);
-              setScreen("play");
-            }}
-            onBack={() => setScreen("welcome")}
-          />
-        )}
-        {screen === "login" && (
-          <LoginScreen
-            key="l"
-            onDone={(p) => {
-              setPlayer(p);
-              saveLoginId(p.id);
-              setScreen("play");
-            }}
-            onBack={() => setScreen("welcome")}
-          />
-        )}
-        {screen === "resume" && savedId && (
-          <ResumeScreen
-            key="rs"
-            id={savedId}
-            onDone={(p) => {
-              setPlayer(p);
-              setScreen("play");
-            }}
-            onSwitch={() => {
-              clearLoginId();
-              setSavedId(null);
-              setScreen("welcome");
-            }}
-          />
-        )}
-        {screen === "play" && player && (
-          <PlayScreen
-            key="pl"
-            initial={player}
-            onSettings={() => setScreen("settings")}
-            onShop={() => setScreen("shop")}
-            onLeaderboard={() => openLeaderboard("play")}
-            onSessionEnd={(stats) => {
-              setSessionStats(stats);
-              setScreen("summary");
-            }}
-          />
-        )}
-        {screen === "shop" && player && (
-          <ShopScreen
-            key="sh"
-            player={player}
-            onUpdatePlayer={(p) => setPlayer(p)}
-            onBack={() => setScreen("play")}
-          />
-        )}
-        {screen === "summary" && player && (
-          <SessionSummaryScreen
-            key="sum"
-            stats={sessionStats}
-            onLeaderboard={() => openLeaderboard("summary")}
-            onResume={() => setScreen("play")}
-          />
-        )}
-        {screen === "leaderboard" && (
-          <LeaderboardScreen
-            key="lb"
-            currentPlayerId={player?.id ?? null}
-            onBack={() => setScreen(leaderboardReturn)}
-          />
-        )}
-        {screen === "settings" && player && (
-          <SettingsScreen
-            key="st"
-            player={player}
-            currentTheme={theme}
-            onToggleTheme={toggleTheme}
-            onBack={() => setScreen("play")}
-            onLogout={() => {
-              clearLoginId();
-              setPlayer(null);
-              setSavedId(null);
-              setScreen("welcome");
-            }}
-            onExit={() => setScreen("welcome")}
-          />
-        )}
-      </AnimatePresence>
-    </main>
+      </div>
+    </div>
   );
 }
 
 /* ---------------- Screens ---------------- */
+
+function GameBackground({ theme }: { theme: "light" | "dark" }) {
+  return (
+    <div className="arena-bg-container">
+      {/* Dynamic Arena spotlights */}
+      <div className="arena-spotlight arena-spotlight-left" />
+      <div className="arena-spotlight arena-spotlight-right" />
+
+      {/* Crowd Camera Flashes */}
+      <div className="arena-flashes">
+        <div className="arena-flash-dot arena-flash-1" />
+        <div className="arena-flash-dot arena-flash-2" />
+        <div className="arena-flash-dot arena-flash-3" />
+        <div className="arena-flash-dot arena-flash-4" />
+        <div className="arena-flash-dot arena-flash-5" />
+        <div className="arena-flash-dot arena-flash-6" />
+      </div>
+
+      {/* Arena Floor Grid lines for depth */}
+      <div className="arena-floor-lines" />
+
+      {/* Ring Ropes */}
+      <div className="arena-ropes">
+        <div className="arena-rope" />
+        <div className="arena-rope" />
+        <div className="arena-rope" />
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Types & Helpers ---------------- */
+
+export type LeaderboardEntry = {
+  id: string;
+  name: string;
+  level: number;
+  high_score: number;
+  score: number;
+};
+
+const MEDAL = ["🥇", "🥈", "🥉"];
+
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function computePlacements(entries: LeaderboardEntry[]): number[] {
+  const ranks: number[] = [];
+  for (let i = 0; i < entries.length; i++) {
+    if (i === 0 || entries[i].score !== entries[i - 1].score) {
+      ranks.push(i + 1);
+    } else {
+      ranks.push(ranks[i - 1]);
+    }
+  }
+  return ranks;
+}
+
+/* ---------------- Sidebars ---------------- */
+
+function AchievementsSidebar() {
+  const [achievements, setAchievements] = useState<(AchievementDef & { unlocked: boolean })[]>([]);
+
+  useEffect(() => {
+    setAchievements(getAllWithStatus());
+
+    const handleUpdate = () => {
+      setAchievements(getAllWithStatus());
+    };
+    window.addEventListener("achievement-unlocked", handleUpdate);
+    window.addEventListener("focus", handleUpdate);
+    const interval = setInterval(handleUpdate, 2000);
+
+    return () => {
+      window.removeEventListener("achievement-unlocked", handleUpdate);
+      window.removeEventListener("focus", handleUpdate);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
+
+  return (
+    <div className="glass-premium sidebar-slide-left flex h-full flex-col rounded-3xl p-5 text-foreground">
+      <div className="flex items-center justify-between border-b border-border/40 pb-4">
+        <div>
+          <h3 className="display text-lg tracking-widest text-primary">Badges</h3>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">Achievements</p>
+        </div>
+        <div className="rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-bold text-primary">
+          {unlockedCount} / {achievements.length}
+        </div>
+      </div>
+      <div className="mt-4 flex-1 overflow-y-auto pr-1 flex flex-col gap-3 max-h-[calc(100vh-14rem)]">
+        {achievements.map((ach) => (
+          <div
+            key={ach.id}
+            className={`achievement-badge flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200 ${
+              ach.unlocked
+                ? "bg-primary/5 border-primary/25"
+                : "bg-card/20 border-border/40 opacity-55"
+            }`}
+          >
+            <div className="text-3xl select-none">{ach.icon}</div>
+            <div className="min-w-0 flex-1">
+              <div className="font-bold text-xs leading-snug">{ach.label}</div>
+              <div className="text-[10px] text-muted-foreground leading-normal mt-0.5">{ach.description}</div>
+            </div>
+            {ach.unlocked && <span className="text-xs text-primary font-bold">✓</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LeaderboardSidebar({ currentPlayerId }: { currentPlayerId: string | null }) {
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  const fetchLeaderboard = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("players")
+      .select("id, name, level, high_score, score")
+      .order("score", { ascending: false })
+      .order("high_score", { ascending: false });
+    
+    if (error) {
+      setErr(error.message);
+    } else {
+      setEntries((data ?? []) as LeaderboardEntry[]);
+      setErr(null);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchLeaderboard();
+    const interval = setInterval(fetchLeaderboard, 5000);
+    return () => clearInterval(interval);
+  }, [fetchLeaderboard]);
+
+  const placements = computePlacements(entries);
+
+  return (
+    <div className="glass-premium sidebar-slide-right flex h-full flex-col rounded-3xl p-5 text-foreground">
+      <div className="flex items-center justify-between border-b border-border/40 pb-4">
+        <div>
+          <h3 className="display text-lg tracking-widest text-primary">Ranks</h3>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">Leaderboard</p>
+        </div>
+        <button
+          onClick={fetchLeaderboard}
+          disabled={loading}
+          className="rounded-full bg-muted/65 hover:bg-muted border border-border/60 p-1.5 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center h-7 w-7"
+          aria-label="Refresh Leaderboard"
+        >
+          {loading ? (
+            <div className="h-3 w-3 animate-spin rounded-full border border-primary border-t-transparent" />
+          ) : (
+            <span className="text-[10px] leading-none">↻</span>
+          )}
+        </button>
+      </div>
+
+      {err && (
+        <div className="mt-4 rounded-xl bg-destructive/10 p-3 text-center text-xs text-destructive">
+          {err}
+        </div>
+      )}
+
+      <div className="mt-4 flex-1 overflow-y-auto pr-1 max-h-[calc(100vh-14rem)] flex flex-col gap-2">
+        {entries.map((entry, idx) => {
+          const isMe = entry.id === currentPlayerId;
+          const rank = placements[idx];
+          const isTop3 = rank <= 3;
+          const bagCol = bagColor(entry.level);
+
+          return (
+            <div
+              key={entry.id}
+              className={`flex items-center justify-between rounded-xl border p-2.5 transition-all duration-200 ${
+                isMe
+                  ? "bg-primary/10 border-primary/35 shadow-sm"
+                  : "bg-card/30 border-border/40 hover:bg-card/50"
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-6 text-center font-bold text-xs shrink-0">
+                  {isTop3 ? (
+                    <span className="text-base">{MEDAL[rank - 1]}</span>
+                  ) : (
+                    <span className="text-muted-foreground">{rank}</span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className={`truncate text-xs font-bold ${isMe ? "text-primary" : "text-foreground/90"}`}>
+                      {entry.name}
+                    </span>
+                    {isMe && (
+                      <span className="shrink-0 rounded-full bg-primary/20 px-1 py-0.2 text-[8px] font-bold text-primary border border-primary/30">
+                        YOU
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[9px] text-muted-foreground mt-0.5">
+                    Lv <span style={{ color: bagCol }} className="font-bold">{entry.level}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-xs font-bold text-accent">{entry.score.toLocaleString()}</div>
+                <div className="text-[8px] text-muted-foreground mt-0.5">Best {entry.high_score.toLocaleString()}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function ScreenWrap({ children }: { children: React.ReactNode }) {
   return (
@@ -361,7 +618,7 @@ function WelcomeScreen({
     <ScreenWrap>
       <div className="text-center">
         <h1
-          className="display text-4xl tracking-widest"
+          className="display text-4xl tracking-widest neon-glow-primary"
           style={{
             background:
               "linear-gradient(135deg, var(--primary), var(--accent))",
@@ -370,7 +627,7 @@ function WelcomeScreen({
             backgroundClip: "text",
           }}
         >
-          ALL IS WELL
+          PUNCH ME
         </h1>
         <div className="mt-2 text-xs uppercase tracking-[0.4em] text-muted-foreground">
           Take a breath. Then swing.
@@ -619,7 +876,7 @@ function ResumeScreen({
     <ScreenWrap>
       <div className="text-center">
         <h1
-          className="display text-3xl tracking-widest"
+          className="display text-3xl tracking-widest neon-glow-primary"
           style={{
             background:
               "linear-gradient(135deg, var(--primary), var(--accent))",
@@ -628,7 +885,7 @@ function ResumeScreen({
             backgroundClip: "text",
           }}
         >
-          ALL IS WELL
+          PUNCH ME
         </h1>
         <div className="mt-2 text-xs uppercase tracking-[0.4em] text-muted-foreground">
           Welcome back
@@ -1799,43 +2056,7 @@ function SessionSummaryScreen({
   );
 }
 
-/* ---------------- Leaderboard ---------------- */
-
-type LeaderboardEntry = {
-  id: string;
-  name: string;
-  level: number;
-  high_score: number;
-  score: number;
-};
-
-const MEDAL = ["🥇", "🥈", "🥉"];
-
-/** Return ordinal suffix string for a number: 1→"1st", 2→"2nd", 3→"3rd", 11→"11th", etc. */
-function ordinal(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
-
-/**
- * Compute competition-style ("1224") rankings for a score-descending sorted list.
- * Tied scores receive the same placement; the next distinct score skips to
- * position-in-list + 1. Returns a parallel array of rank numbers.
- *
- * Example: scores [100, 90, 90, 80] → ranks [1, 2, 2, 4]
- */
-function computePlacements(entries: LeaderboardEntry[]): number[] {
-  const ranks: number[] = [];
-  for (let i = 0; i < entries.length; i++) {
-    if (i === 0 || entries[i].score !== entries[i - 1].score) {
-      ranks.push(i + 1);
-    } else {
-      ranks.push(ranks[i - 1]);
-    }
-  }
-  return ranks;
-}
+/* ---------------- Leaderboard Screen ---------------- */
 
 function LeaderboardScreen({
   currentPlayerId,
@@ -2075,11 +2296,15 @@ function LeaderboardScreen({
 
 function SettingsScreen({
   player,
+  currentTheme,
+  onToggleTheme,
   onBack,
   onLogout,
   onExit,
 }: {
   player: Player;
+  currentTheme: "dark" | "light";
+  onToggleTheme: () => void;
   onBack: () => void;
   onLogout: () => void;
   onExit: () => void;
@@ -2175,6 +2400,37 @@ function SettingsScreen({
             <span
               className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-md transition-all duration-300 ${
                 mutedState ? "left-1" : "left-7"
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Theme toggle */}
+        <div className="glass flex items-center justify-between rounded-2xl p-4">
+          <div>
+            <div className="font-semibold">Light theme</div>
+            <div className="text-xs text-muted-foreground">
+              Toggle between light and dark visual styles
+            </div>
+          </div>
+          <button
+            role="switch"
+            aria-checked={currentTheme === "light"}
+            onClick={onToggleTheme}
+            className={`relative h-8 w-14 rounded-full transition-all duration-300 ${
+              currentTheme === "light"
+                ? "bg-primary"
+                : "bg-muted"
+            }`}
+            style={
+              currentTheme === "light"
+                ? { boxShadow: "0 0 12px color-mix(in oklch, var(--primary) 40%, transparent)" }
+                : {}
+            }
+          >
+            <span
+              className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-md transition-all duration-300 ${
+                currentTheme === "light" ? "left-7" : "left-1"
               }`}
             />
           </button>
@@ -2293,15 +2549,15 @@ function Field({
 
 function BackBar({ onBack, title }: { onBack: () => void; title: string }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 text-foreground">
       <button
         onClick={onBack}
         aria-label="Back"
-        className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card/70 transition-all hover:bg-muted hover:scale-110 active:scale-95"
+        className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card/70 text-foreground transition-all hover:bg-muted hover:scale-110 active:scale-95"
       >
         ←
       </button>
-      <h2 className="display text-xl tracking-widest">{title}</h2>
+      <h2 className="display text-xl tracking-widest text-foreground">{title}</h2>
     </div>
   );
 }
